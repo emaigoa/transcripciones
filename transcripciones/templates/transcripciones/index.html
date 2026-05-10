@@ -1,0 +1,64 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Transcripciones Drive</title>
+    <link rel="stylesheet" href="{% static 'transcripciones/styles.css' %}">
+</head>
+<body>
+    <main class="shell">
+        <section class="panel">
+            <h1>Transcripciones Drive</h1>
+
+            <form method="post" class="form" id="transcript-form">
+                {% csrf_token %}
+                <label for="{{ form.url.id_for_label }}">{{ form.url.label }}</label>
+                {{ form.url }}
+                {% if form.url.errors %}
+                    <p class="error">{{ form.url.errors.0 }}</p>
+                {% endif %}
+                <button type="submit">Extraer transcripcion</button>
+            </form>
+
+            {% if error %}
+                <div class="notice error-box">{{ error }}</div>
+            {% endif %}
+
+            {% if transcript %}
+                <section class="result">
+                    <div class="result-header">
+                        <div>
+                            <h2>{{ title }}</h2>
+                            <p>{{ segment_count }} segmentos extraidos</p>
+                        </div>
+                        <a href="{% url 'transcripciones:download' filename %}">Descargar TXT</a>
+                    </div>
+                    <textarea readonly>{{ transcript }}</textarea>
+                </section>
+            {% endif %}
+        </section>
+    </main>
+
+    <div class="loading" id="loading" hidden>
+        <div class="loading-box" id="loading-text">Cargando ..</div>
+    </div>
+
+    <script>
+        const form = document.getElementById("transcript-form");
+        const loading = document.getElementById("loading");
+        const loadingText = document.getElementById("loading-text");
+        const frames = ["Cargando ..", "Cargando ...."];
+        let frame = 0;
+
+        form.addEventListener("submit", () => {
+            loading.hidden = false;
+            setInterval(() => {
+                frame += 1;
+                loadingText.textContent = frames[frame % frames.length];
+            }, 500);
+        });
+    </script>
+</body>
+</html>
