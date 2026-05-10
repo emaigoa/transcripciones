@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from html import unescape
 from pathlib import Path
+import os
 import re
+import shutil
 import time
 
 from selenium import webdriver
@@ -79,8 +81,14 @@ def available_path(path):
 
 def create_driver():
     chrome_options = ChromeOptions()
+    chrome_binary = os.environ.get("CHROME_BIN") or shutil.which("chromium")
+    if chrome_binary:
+        chrome_options.binary_location = chrome_binary
+
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--mute-audio")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--start-maximized")
     chrome_options.add_argument("--window-size=1920,1080")
 
