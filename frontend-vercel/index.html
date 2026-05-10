@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Transcripciones Drive</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <main class="shell">
+        <section class="panel">
+            <h1>Transcripciones Drive</h1>
+            <form class="form" id="form">
+                <label for="url">Link de Drive</label>
+                <input id="url" name="url" type="url" placeholder="https://drive.google.com/..." required autofocus>
+                <button type="submit">Extraer transcripcion</button>
+            </form>
+
+            <div class="notice error-box" id="error" hidden></div>
+
+            <section class="result" id="result" hidden>
+                <div class="result-header">
+                    <div>
+                        <h2 id="title"></h2>
+                        <p id="segment-count"></p>
+                    </div>
+                    <button type="button" id="copy">Copiar texto</button>
+                </div>
+                <textarea id="transcript" readonly></textarea>
+            </section>
+        </section>
+    </main>
+
+    <div class="loading" id="loading" hidden>
+        <div class="loading-box" id="loading-text">Cargando ..</div>
+    </div>
+
+    <script src="/config.js"></script>
+    <script src="/app.js"></script>
+</body>
+</html>

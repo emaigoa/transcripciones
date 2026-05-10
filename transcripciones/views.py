@@ -11,16 +11,27 @@ from .forms import DriveLinkForm
 from .services.drive_scraper import save_transcript, scrape_transcript
 
 
-def extract_and_save(url):
+def extract_transcript_data(url):
     result = scrape_transcript(url)
-    output_path = save_transcript(result, settings.TRANSCRIPCIONES_OUTPUT_DIR)
 
     return {
         "title": result.title or "sin titulo",
         "transcript": result.transcript,
         "segment_count": result.segment_count,
-        "filename": output_path.name,
     }
+
+
+def extract_and_save(url):
+    result = scrape_transcript(url)
+    output_path = save_transcript(result, settings.TRANSCRIPCIONES_OUTPUT_DIR)
+    data = {
+        "title": result.title or "sin titulo",
+        "transcript": result.transcript,
+        "segment_count": result.segment_count,
+        "filename": output_path.name,
+        "download_url": f"/descargar/{output_path.name}/",
+    }
+    return data
 
 
 def index(request):
@@ -39,6 +50,10 @@ def index(request):
     return render(request, "transcripciones/index.html", context)
 
 
+def health(request):
+    return JsonResponse({"status": "ok"})
+
+
 @csrf_exempt
 @require_POST
 def create_transcript(request):
@@ -54,7 +69,7 @@ def create_transcript(request):
         return JsonResponse({"error": "URL invalida."}, status=400)
 
     try:
-        data = extract_and_save(form.cleaned_data["url"])
+        data = extract_transcript_data(form.cleaned_data["url"])
     except Exception as error:
         return JsonResponse({"error": str(error)}, status=500)
 
