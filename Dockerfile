@@ -17,4 +17,4 @@ COPY . .
 
 RUN python manage.py collectstatic --noinput
 
-CMD ["sh", "-c", "python manage.py migrate && gunicorn drive_transcriber.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 1 --threads 1 --timeout 300 --graceful-timeout 30"]
+CMD ["sh", "-c", "python manage.py migrate && gunicorn drive_transcriber.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 1 --threads 1 --timeout 600 --graceful-timeout 30 --access-logfile - --error-logfile -"]
