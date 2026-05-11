@@ -23,6 +23,10 @@ TRANSCRIPT_BUTTON_JSNAME = "QzTKac"
 INVALID_FILENAME_CHARS = r'<>:"/\|?*'
 
 
+class AuthRequiredError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class TranscriptResult:
     title: str
@@ -114,17 +118,51 @@ def click_button(driver, wait, selector, error_message):
         driver.execute_script("arguments[0].click();", button)
 
 
-def scrape_transcript(url):
+def report(progress_callback, status, message):
+    if progress_callback:
+        progress_callback(status, message)
+
+
+def is_google_login(driver):
+    current_url = driver.current_url.lower()
+    if "accounts.google.com" in current_url:
+        return True
+
+    login_selectors = [
+        'input[type="email"]',
+        'input[name="identifier"]',
+        "#identifierId",
+    ]
+    return any(driver.find_elements(By.CSS_SELECTOR, selector) for selector in login_selectors)
+
+
+def scrape_transcript(url, progress_callback=None):
+    report(progress_callback, "starting", "Preparando navegador")
     driver = create_driver()
     wait = WebDriverWait(driver, 120)
 
     try:
+        report(progress_callback, "opening", "Abriendo link de Drive")
         driver.get(url)
 
+        time.sleep(1)
+        if is_google_login(driver):
+            raise AuthRequiredError(
+                "El archivo es privado o requiere iniciar sesion en Google. "
+                "Compartilo como accesible con link o usa OAuth en una version futura."
+            )
+
+        report(progress_callback, "playing", "Iniciando reproduccion")
         play_selector = f'button[jsname="{PLAY_BUTTON_JSNAME}"]'
         click_button(driver, wait, play_selector, "No se encontro el boton reproducir.")
         time.sleep(2)
 
+        if is_google_login(driver):
+            raise AuthRequiredError(
+                "Google pidio iniciar sesion antes de mostrar el video."
+            )
+
+        report(progress_callback, "transcript_panel", "Abriendo panel de transcripcion")
         transcript_button_selector = f'button[jsname="{TRANSCRIPT_BUTTON_JSNAME}"]'
         click_button(
             driver,
@@ -136,6 +174,7 @@ def scrape_transcript(url):
         transcript_selector = f'div[jsname="{TRANSCRIPT_JSNAME}"] div.wyBDIb'
         title_selector = f'span[jscontroller="{TITLE_JSCONTROLLER}"]'
 
+        report(progress_callback, "waiting_segments", "Esperando segmentos")
         try:
             wait.until(
                 lambda browser: browser.find_elements(
@@ -148,6 +187,7 @@ def scrape_transcript(url):
                 f"No se encontraron segmentos dentro de div jsname={TRANSCRIPT_JSNAME!r}."
             ) from error
 
+        report(progress_callback, "extracting", "Extrayendo texto")
         segments = [
             clean_text(element.text)
             for element in driver.find_elements(By.CSS_SELECTOR, transcript_selector)
@@ -160,6 +200,7 @@ def scrape_transcript(url):
         title_elements = driver.find_elements(By.CSS_SELECTOR, title_selector)
         title = clean_text(title_elements[0].text) if title_elements else ""
 
+        report(progress_callback, "finished", "Transcripcion lista")
         return TranscriptResult(
             title=title,
             transcript="\n".join(segments),

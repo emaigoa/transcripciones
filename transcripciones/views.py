@@ -1,18 +1,37 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
+from threading import Lock, Thread
+from uuid import uuid4
 
 from django.conf import settings
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .forms import DriveLinkForm
-from .services.drive_scraper import save_transcript, scrape_transcript
+from .services.drive_scraper import AuthRequiredError, save_transcript, scrape_transcript
 
 
-def extract_transcript_data(url):
-    result = scrape_transcript(url)
+JOBS = {}
+JOBS_LOCK = Lock()
+
+
+def now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def set_job(job_id, **updates):
+    with JOBS_LOCK:
+        job = JOBS[job_id]
+        job.update(updates)
+        job["updated_at"] = now_iso()
+        return dict(job)
+
+
+def extract_transcript_data(url, progress_callback=None):
+    result = scrape_transcript(url, progress_callback=progress_callback)
 
     return {
         "title": result.title or "sin titulo",
@@ -74,6 +93,72 @@ def create_transcript(request):
         return JsonResponse({"error": str(error)}, status=500)
 
     return JsonResponse(data)
+
+
+def run_transcript_job(job_id, url):
+    def progress(status, message):
+        set_job(job_id, status=status, message=message)
+
+    try:
+        data = extract_transcript_data(url, progress_callback=progress)
+    except AuthRequiredError as error:
+        set_job(
+            job_id,
+            status="auth_required",
+            message=str(error),
+            error=str(error),
+        )
+    except Exception as error:
+        set_job(job_id, status="failed", message=str(error), error=str(error))
+    else:
+        set_job(job_id, status="done", message="Transcripcion lista", result=data)
+
+
+@csrf_exempt
+@require_POST
+def create_transcript_job(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "JSON invalido."}, status=400)
+
+    url = payload.get("url", "").strip()
+    form = DriveLinkForm({"url": url})
+
+    if not form.is_valid():
+        return JsonResponse({"error": "URL invalida."}, status=400)
+
+    job_id = uuid4().hex
+    with JOBS_LOCK:
+        JOBS[job_id] = {
+            "id": job_id,
+            "status": "queued",
+            "message": "En cola",
+            "result": None,
+            "error": None,
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+
+    thread = Thread(
+        target=run_transcript_job,
+        args=(job_id, form.cleaned_data["url"]),
+        daemon=True,
+    )
+    thread.start()
+
+    return JsonResponse({"job_id": job_id, "status": "queued", "message": "En cola"})
+
+
+@require_GET
+def transcript_job_status(request, job_id):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+
+    if not job:
+        return JsonResponse({"error": "Trabajo no encontrado."}, status=404)
+
+    return JsonResponse(job)
 
 
 def download_transcript(request, filename):

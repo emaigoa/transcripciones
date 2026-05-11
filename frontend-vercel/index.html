@@ -17,6 +17,10 @@
             </form>
 
             <div class="notice error-box" id="error" hidden></div>
+            <div class="notice auth-box" id="auth-required" hidden>
+                <strong>El archivo requiere acceso.</strong>
+                <p>No puedo iniciar sesion con tu cuenta desde Fly. Abri el archivo con tu cuenta de Google y compartilo como accesible con link, o usá un archivo publico.</p>
+            </div>
 
             <section class="result" id="result" hidden>
                 <div class="result-header">
@@ -32,7 +36,12 @@
     </main>
 
     <div class="loading" id="loading" hidden>
-        <div class="loading-box" id="loading-text">Cargando ..</div>
+        <div class="loading-box">
+            <p id="loading-text">Preparando</p>
+            <div class="progress-track">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+        </div>
     </div>
 
     <script src="/config.js"></script>
